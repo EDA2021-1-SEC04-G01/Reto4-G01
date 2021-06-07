@@ -25,6 +25,7 @@
  """
 
 
+from DISClib.DataStructures.chaininghashtable import get
 import config as cf
 from DISClib.ADT import list as lt
 from DISClib.ADT import map as m
@@ -37,7 +38,8 @@ from DISClib.Algorithms.Graphs import scc
 from DISClib.Algorithms.Graphs import dijsktra as djk
 from DISClib.Utils import error as error
 from math import radians, cos, sin, asin, sqrt
-
+from DISClib.Algorithms.Graphs import prim
+from DISClib.Algorithms.Graphs import dfo
 """
 Se define la estructura de un catálogo de videos. El catálogo tendrá dos listas, una para los videos, otra para las categorias de
 los mismos.
@@ -110,6 +112,7 @@ def addpointConnection(analyzer,cable):
         addPoint(analyzer, origin)
         addPoint(analyzer, destination)
         addConnection(analyzer, origin, destination, distance)
+        addConnection(analyzer, destination, origin, distance)
         addlandingPoint(analyzer, cable)
         return analyzer
     except Exception as exp:
@@ -256,13 +259,10 @@ def addCapitalConnections(analyzer):
                     point= point[0]
                     pointInfo= m.get(analyzer["pointsInfo"], point)['value']
                     latitude2= float(pointInfo["latitude"])
-                    longitude2= float(pointInfo["longitude"])
-                
-                    
+                    longitude2= float(pointInfo["longitude"])                                   
                     if longitude1 == longitude2 and latitude1 == latitude2:
                         pass
-                    else:
-                        
+                    else:                      
                         distance= haversine(longitude1, latitude1, longitude2, latitude2)
                         addConnection(analyzer, key, i, distance)
                         addConnection(analyzer, i, key, distance)    
@@ -291,6 +291,108 @@ def connectedComponents(analyzer):
     """
     analyzer['components'] = scc.KosarajuSCC(analyzer['connections'])
     return scc.connectedComponents(analyzer['components'])
+
+
+def mostConnections(analyzer):
+    """
+    Retorna la estación que sirve a mas rutas.
+    Si existen varias rutas con el mismo numero se
+    retorna una de ellas
+    """
+    lstvert = m.keySet(analyzer['landingPoints'])
+    maxvert = None
+    maxdeg = 0
+    iteration= 0
+    lstPoints= {}
+    while iteration < 5:
+        for vert in lt.iterator(lstvert):
+            lstroutes = m.get(analyzer['landingPoints'], vert)['value']
+            degree = lt.size(lstroutes)
+            if(degree > maxdeg) and vert not in lstPoints:
+                maxvert = vert
+                maxdeg = degree
+        lstPoints[maxvert]= maxdeg
+        iteration +=1
+        maxvert= None
+        maxdeg= 0           
+    print("Landing points con mas cables conectados: ")
+    count= 1
+    for i in lstPoints.keys():
+       info= m.get(analyzer['pointsInfo'], i)["value"]
+       print("Top "+str(count)+"\nNombre y pais: "+ info["name"]+"\nIdentificador: "+i)
+       print("Total de cables conectados: "+str(lstPoints[i]))
+       count +=1
+
+def minimumPath(analyzer, origin, dest):
+    orndest= []
+    orndest.append(origin)
+    orndest.append(dest)
+    count= 1
+    itcount= 0
+    for origin in orndest:
+        originPoint= None
+        country= m.get(analyzer["countriesInfo"], origin)['value']
+        capital= country["CapitalName"]
+        lstpoints= m.get(analyzer["countryPoints"], origin)['value']
+        for i in lt.iterator(lstpoints):
+            key= i.partition("*")
+            key= key[0]
+            countryinfo= m.get(analyzer["pointsInfo"], key)['value']
+            countryncity= countryinfo["name"]
+            times= countryncity.count(",")
+            if times == 1:
+                partition= countryncity.partition(", ")
+                city= partition[0]
+            elif times == 2:
+                partition= countryncity.partition(", ")       
+                city= partition[0]
+            elif times == 3:
+                city= "Kihei"
+            else:
+                pass
+            if city == capital:
+                originPoint= i
+                break
+        if count == 1:
+           if originPoint== None:
+               originPoint= lt.lastElement(lstpoints)
+           analyzer['paths'] = djk.Dijkstra(analyzer['connections'], originPoint)
+        else:
+            if originPoint== None:
+               originPoint= lt.lastElement(lstpoints)
+            path = djk.pathTo(analyzer['paths'], originPoint)
+        count+=1
+    
+    return path
+
+def minimumExpansion(analyzer):
+    min= prim.PrimMST(analyzer["connections"])
+    print(min["mst"])
+    print(min.keys())
+    print(min["pq"].keys())
+
+def failLanding(analyzer,lanname):    
+    keys= m.keySet(analyzer["pointsInfo"])
+    for key in lt.iterator(keys):
+        lanp= m.get(analyzer["pointsInfo"], key)["value"]
+        name= lanp["name"]
+        times= name.count(",")
+        if times == 1:
+            partition= name.partition(", ")
+            city= partition[0]
+        elif times == 2:
+            partition= name.partition(", ")       
+            city= partition[0]
+        elif times == 3:
+            city= "Kihei"
+        else:
+            pass
+        if city == lanname:
+            m.get(analyzer["landingPoints"], key)
+
+
+
+
 # Funciones para creacion de datos
 
 # Funciones de consulta

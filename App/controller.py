@@ -106,7 +106,8 @@ def connectedComponents(analyzer):
     """
     return model.connectedComponents(analyzer)
 
-
+def mostConnections(analyzer):
+    return model.mostConnections(analyzer)
 # Funciones de ordenamiento
 
 # Funciones de consulta sobre el catálogo

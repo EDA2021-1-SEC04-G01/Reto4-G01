@@ -51,9 +51,9 @@ def printMenu():
     print("1- Iniciar Analizador")
     print("2- Cargar datos")
     print("3- Encontrar cantidad de Clústeres y ver si 2 landing points pertecen al mismo clúster")
-    print("4-Req 2")
-    print("5-Req 3")
-    print("6-Req 4")
+    print("4- Encontrar Landing points con mas cables concectados")
+    print("5- Encontrar ruta minima entre dos paises")
+    print("6- Red de conexion minima")
     print("7-Req 5")
     print("8-Req 6")
     print("9-Req 7")
@@ -84,6 +84,29 @@ def optionThree(cont, lp1, lp2):
           str(controller.connectedComponents(cont)))
     model.isscc(cont, lp1, lp2)
 
+def optionFour(cont):
+    return controller.mostConnections(cont)
+
+def optionFive(cont, origin, dest):
+    distance= 0
+    path= model.minimumPath(cont, origin, dest)
+    if path is not None:
+        while (not stack.isEmpty(path)):
+            stop = stack.pop(path)
+            distance += int(stop["weight"])
+            print(stop)
+    else:
+        print('No hay camino')
+    print("La distancia total de la ruta (en Km) es: "+ str(distance))
+
+def optionSix(cont):
+    model.minimumExpansion(cont)
+
+def optionSeven(cont,lanname):
+    model.failLanding(cont,lanname)
+
+
+
 catalog = None
 
 """
@@ -106,6 +129,22 @@ while True:
          lp1= input("Landing point 1: ")
          lp2= input("Landing point 2: ")
          optionThree(cont, lp1, lp2)
+
+    elif int(inputs[0]) == 4:
+        optionFour(cont)
+
+    elif int(inputs[0]) == 5:
+        origin= input("Ingrese el pais de origen: ")
+        dest= input("Ingrese el pais de destino: ")
+        optionFive(cont, origin, dest)
+    
+    elif int(inputs[0]) == 6:
+        optionSix(cont)
+
+    elif int(inputs[0]) == 7:
+        lanname=input("Ingrese el nombre del Landing Point")
+        optionSeven(cont, lanname)
+
 
 
 
