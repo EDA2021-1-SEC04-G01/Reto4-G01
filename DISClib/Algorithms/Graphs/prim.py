@@ -42,7 +42,6 @@ def PrimMST(graph):
     Implementa el algoritmo de Prim
     Args:
         graph: El grafo de busqueda
-
     Returns:
         La estructura search con los MST
     Raises:

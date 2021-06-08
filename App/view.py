@@ -54,12 +54,39 @@ def printMenu():
     print("4- Encontrar Landing points con mas cables concectados")
     print("5- Encontrar ruta minima entre dos paises")
     print("6- Red de conexion minima")
-    print("7-Req 5")
-    print("8-Req 6")
-    print("9-Req 7")
+    print("7- Encontrar los paises afectados por el fallo de un landing point")
+    print("8- Lista de paises conectados a un cable y su maximo de ancho de banda")
+    print("9- Ruta minima entre dos IPs")
     print("10-Req 8")
 
+def getTime():
+    """
+    devuelve el instante tiempo de procesamiento en milisegundos
+    """
+    return float(time.perf_counter()*1000)
 
+
+def getMemory():
+    """
+    toma una muestra de la memoria alocada en instante de tiempo
+    """
+    return tracemalloc.take_snapshot()
+
+
+def deltaMemory(start_memory, stop_memory):
+    """
+    calcula la diferencia en memoria alocada del programa entre dos
+    instantes de tiempo y devuelve el resultado en bytes (ej.: 2100.0 B)
+    """
+    memory_diff = stop_memory.compare_to(start_memory, "filename")
+    delta_memory = 0.0
+
+    # suma de las diferencias en uso de memoria
+    for stat in memory_diff:
+        delta_memory = delta_memory + stat.size_diff
+    # de Byte -> kByte
+    delta_memory = delta_memory/1024.0
+    return delta_memory
 def optionTwo(cont):
     print("\nCargando información....")
     ans= controller.loadServices(cont, connections, points, countries)
@@ -100,12 +127,17 @@ def optionFive(cont, origin, dest):
     print("La distancia total de la ruta (en Km) es: "+ str(distance))
 
 def optionSix(cont):
+    
     model.minimumExpansion(cont)
 
 def optionSeven(cont,lanname):
     model.failLanding(cont,lanname)
 
-
+def optionEight(cont, country,name):
+    print("Los paises conectados a este cable son: ")
+    model.maxBb(cont, country, name)
+def optionNine(cont, ip1,ip2):
+    model.ipdistance(cont,ip1,ip2)    
 
 catalog = None
 
@@ -128,26 +160,96 @@ while True:
          print("A continuacion ingrese dos landing points para mirar si estan fuertemente conectados:")
          lp1= input("Landing point 1: ")
          lp2= input("Landing point 2: ")
+         delta_time = -1.0
+         delta_memory = -1.0
+         tracemalloc.start()
+         start_time = getTime()
+         start_memory = getMemory()
          optionThree(cont, lp1, lp2)
+         stop_memory = getMemory()
+         stop_time = getTime()
+         tracemalloc.stop()
+         delta_time = stop_time - start_time
+         delta_memory = deltaMemory(start_memory, stop_memory)
+         print("Tiempo [ms]: ", f"{delta_time:.3f}", "  ||  ",
+              "Memoria [kB]: ", f"{delta_memory:.3f}")
 
     elif int(inputs[0]) == 4:
+        delta_time = -1.0
+        delta_memory = -1.0
+        tracemalloc.start()
+        start_time = getTime()
+        start_memory = getMemory()
         optionFour(cont)
+        stop_memory = getMemory()
+        stop_time = getTime()
+        tracemalloc.stop()
+        delta_time = stop_time - start_time
+        delta_memory = deltaMemory(start_memory, stop_memory)
+        print("Tiempo [ms]: ", f"{delta_time:.3f}", "  ||  ",
+              "Memoria [kB]: ", f"{delta_memory:.3f}")
 
     elif int(inputs[0]) == 5:
         origin= input("Ingrese el pais de origen: ")
         dest= input("Ingrese el pais de destino: ")
+        delta_time = -1.0
+        delta_memory = -1.0
+        tracemalloc.start()
+        start_time = getTime()
+        start_memory = getMemory()
         optionFive(cont, origin, dest)
+        stop_memory = getMemory()
+        stop_time = getTime()
+        tracemalloc.stop()
+        delta_time = stop_time - start_time
+        delta_memory = deltaMemory(start_memory, stop_memory)
+        print("Tiempo [ms]: ", f"{delta_time:.3f}", "  ||  ",
+              "Memoria [kB]: ", f"{delta_memory:.3f}")
     
     elif int(inputs[0]) == 6:
+        delta_time = -1.0
+        delta_memory = -1.0
+        tracemalloc.start()
+        start_time = getTime()
+        start_memory = getMemory()
         optionSix(cont)
+        stop_memory = getMemory()
+        stop_time = getTime()
+        tracemalloc.stop()
+        delta_time = stop_time - start_time
+        delta_memory = deltaMemory(start_memory, stop_memory)
+        print("Tiempo [ms]: ", f"{delta_time:.3f}", "  ||  ",
+              "Memoria [kB]: ", f"{delta_memory:.3f}")
 
     elif int(inputs[0]) == 7:
-        lanname=input("Ingrese el nombre del Landing Point")
+        lanname=input("Ingrese el nombre del Landing Point: ")
+        delta_time = -1.0
+        delta_memory = -1.0
+        tracemalloc.start()
+        start_time = getTime()
+        start_memory = getMemory()
         optionSeven(cont, lanname)
+        stop_memory = getMemory()
+        stop_time = getTime()
+        tracemalloc.stop()
+        delta_time = stop_time - start_time
+        delta_memory = deltaMemory(start_memory, stop_memory)
+        print("Tiempo [ms]: ", f"{delta_time:.3f}", "  ||  ",
+              "Memoria [kB]: ", f"{delta_memory:.3f}")
 
-
+    elif int(inputs[0]) == 8:
+        country=input("Ingrese el pais: ")
+        name=input("Ingrese el nombre del cable: ")
+        optionEight(cont, country,name)
+    
+    elif int(inputs[0]) == 9:
+        ip1=input("Ingrese la primera direccion IP: ")
+        ip2=input("Ingrese la segunda direccion IP: ")
+        optionNine(cont, ip1, ip2)
 
 
     else:
         sys.exit(0)
+
+    sys.setrecursionlimit(2 ** 30)
 sys.exit(0)

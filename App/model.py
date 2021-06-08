@@ -25,21 +25,28 @@
  """
 
 
-from DISClib.DataStructures.chaininghashtable import get
+from DISClib.ADT.indexminpq import size
+from DISClib.DataStructures.chaininghashtable import get, keySet
 import config as cf
 from DISClib.ADT import list as lt
 from DISClib.ADT import map as m
 from DISClib.DataStructures import mapentry as me
 from DISClib.Algorithms.Sorting import shellsort as sa
 assert cf
-from DISClib.ADT.graph import gr
+from DISClib.ADT.graph import edges, gr
 from DISClib.ADT import list as lt
 from DISClib.Algorithms.Graphs import scc
+from DISClib.Algorithms.Graphs import bellmanford as bf
 from DISClib.Algorithms.Graphs import dijsktra as djk
 from DISClib.Utils import error as error
 from math import radians, cos, sin, asin, sqrt
 from DISClib.Algorithms.Graphs import prim
 from DISClib.Algorithms.Graphs import dfo
+import json
+from urllib.request import urlopen
+import re
+import urllib3
+from DISClib.ADT import stack
 """
 Se define la estructura de un catálogo de videos. El catálogo tendrá dos listas, una para los videos, otra para las categorias de
 los mismos.
@@ -81,6 +88,9 @@ def newAnalyzer():
         analyzer['countryPoints'] = m.newMap(numelements=14000,
                                      maptype='PROBING',
                                      comparefunction=compareStopIds)
+        analyzer['cableinfo'] = m.newMap(numelements=14000,
+                                     maptype='PROBING',
+                                     comparefunction=compareStopIds)                             
 
         return analyzer
     except Exception as exp:
@@ -102,6 +112,8 @@ def addpointConnection(analyzer,cable):
     try:
         origin = cable['\ufefforigin'] + '*' + cable['cable_name']
         destination = cable['destination'] + '*' + cable['cable_name']
+        m.put(analyzer["cableinfo"], origin, cable)
+        m.put(analyzer["cableinfo"], destination, cable) 
         distance= cable["cable_length"]
         distance= distance.replace(',' , '')
         distance= filter(str.isdigit, distance)
@@ -266,7 +278,27 @@ def addCapitalConnections(analyzer):
                         distance= haversine(longitude1, latitude1, longitude2, latitude2)
                         addConnection(analyzer, key, i, distance)
                         addConnection(analyzer, i, key, distance)    
-    return analyzer             
+    return analyzer
+  
+def createCapital(analyzer):
+    countries= m.keySet(analyzer["countryPoints"])
+    for i in lt.iterator(countries):
+        info= m.get(analyzer["countriesInfo"], i)["value"]
+        capital= info["CapitalName"]
+        lat1= float(info["CapitalLatitude"])
+        lon1= float(info["CapitalLongitude"])
+        gr.insertVertex(analyzer["connections"], capital)
+        lstpoints= m.get(analyzer["countryPoints"], i)["value"]
+        for k in lt.iterator(lstpoints):
+            point= k.partition("*")
+            point= point[0]
+            cityinfo= m.get(analyzer["pointsInfo"], point)["value"]
+            lat2= float(cityinfo["latitude"])
+            lon2= float(cityinfo["longitude"])
+            distance= haversine(lon1, lat1, lon2, lat2)
+            addConnection(analyzer, capital, k, distance)
+            addConnection(analyzer, k, capital, distance)
+
 
 def totalPoints(analyzer):
     """
@@ -366,12 +398,18 @@ def minimumPath(analyzer, origin, dest):
     return path
 
 def minimumExpansion(analyzer):
+    
     min= prim.PrimMST(analyzer["connections"])
-    print(min["mst"])
-    print(min.keys())
-    print(min["pq"].keys())
-
-def failLanding(analyzer,lanname):    
+    distance=prim.weightMST(analyzer["connections"],min )
+    distance= round(distance, 2)
+    nodes = min["mst"] ["size"]
+    print("El total de nodos conectados a la red de expansion minima es: "+str(nodes))
+    print("La distancia total (en km) de la red de expansion minima es: "+str(distance))
+    
+    
+def failLanding(analyzer,lanname): 
+    countrylist= []
+    countrydict= {}   
     keys= m.keySet(analyzer["pointsInfo"])
     for key in lt.iterator(keys):
         lanp= m.get(analyzer["pointsInfo"], key)["value"]
@@ -388,7 +426,76 @@ def failLanding(analyzer,lanname):
         else:
             pass
         if city == lanname:
-            m.get(analyzer["landingPoints"], key)
+            lat1= float(lanp["latitude"])
+            lon1= float(lanp["longitude"])
+            cables = m.get(analyzer["landingPoints"], key)["value"]
+            for i in lt.iterator(cables):
+                vertice= key + '*' + i
+                lstpoints= gr.adjacents(analyzer["connections"], vertice)
+                for j in lt.iterator(lstpoints):
+                    countrykeys= m.keySet(analyzer["countryPoints"])
+                    for k in lt.iterator(countrykeys):
+                        pointslist= m.get(analyzer["countryPoints"], k)["value"]
+                        isin= lt.isPresent(pointslist, j)
+                        if isin != 0 and k not in countrylist  :
+                            countrylist.append(k)
+    for i in countrylist:
+        info= m.get(analyzer["countriesInfo"],i)["value"]
+        lat2= float(info["CapitalLatitude"])
+        lon2= float(info["CapitalLongitude"])
+        distance= haversine(lon1, lat1, lon2, lat2)
+        countrydict[i]= distance
+    print("La cantidad de paises afectados es: "+str(len(countrylist)))
+    print("Pasises afectados:")
+    while countrydict:       
+        longest= max(countrydict, key=countrydict.get)
+        print(longest+" ("+str(countrydict[longest])+")")
+        del countrydict[longest]
+
+def maxBb(analyzer, country, cable):
+    pointslist= []
+    countrydict= {}
+    keys= m.keySet(analyzer["landingPoints"])
+    for i in lt.iterator(keys):
+        lst= m.get(analyzer["landingPoints"], i)["value"]
+        isit= lt.isPresent(lst, cable)
+        if isit != 0:
+            point= i+"*"+cable
+            pointslist.append(point)
+    countries= m.keySet(analyzer["countryPoints"])
+    for i in pointslist:
+        for j in lt.iterator(countries):
+            pointslt= m.get(analyzer["countryPoints"], j)["value"]
+            isin= lt.isPresent(pointslt, i)
+            if isin != 0 and j not in countrydict and j != country:
+                countrydict[j]= i
+        
+    bb= m.get(analyzer["cableinfo"], pointslist[0]) ["value"]
+    bb= float(bb["capacityTBPS"])*1000000
+    for i in countrydict.keys():
+        info= m.get(analyzer["countriesInfo"],i)["value"]
+        users= float(info["Internet users"])
+        ab= round((bb/users), 3)
+        print(i+"-se puede asegurar un ancho de banda de "+str(ab)+" Mbps")
+
+def ipdistance(cont,ip1,ip2):
+    url = 'http://ip-api.com/json/' + ip1
+    response = urlopen(url)
+    data = json.load(response)
+    country1= data["country"]
+    url = 'http://ip-api.com/json/' + ip2
+    response = urlopen(url)
+    data = json.load(response)
+    country2= data["country"]
+    path= minimumPath(cont, country1, country2)
+    if path is not None:
+        pathlen = stack.size(path)
+        while (not stack.isEmpty(path)):
+            stop = stack.pop(path)
+            print(stop)
+    else:
+        print('No hay camino')
+    print('El total de saltos de la ruta es : ' + str(pathlen))
 
 
 

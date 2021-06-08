@@ -84,6 +84,7 @@ def loadServices(analyzer, connections, points, countries):
         model.addCountryPoints(analyzer, cable)  
     model.addCableConnections(analyzer)
     model.addCapitalConnections(analyzer)
+    model.createCapital(analyzer)
     
     return analyzer, id, name, latitude, longitude, countryname, population, users
 
